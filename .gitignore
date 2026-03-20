@@ -1,0 +1,25 @@
+# GCP credentials — never commit service account keys
+*.json
+credentials/
+secrets/
+
+# Crossplane package build artifacts
+*.xpkg
+
+# Go build artifacts
+custom-function/bin/
+custom-function/vendor/
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Helm chart download cache
+charts/
+
+# Local override files
+*.local.yaml
+*.override.yaml

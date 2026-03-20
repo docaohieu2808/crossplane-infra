@@ -1,0 +1,85 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xwebapplications.infra.example.io
+  annotations:
+    crossplane.io/description: "XRD defining the WebApplication composite resource schema"
+spec:
+  group: infra.example.io
+  names:
+    kind: XWebApplication
+    plural: xwebapplications
+  claimNames:
+    kind: WebApplication
+    plural: webapplications
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - parameters
+              properties:
+                parameters:
+                  type: object
+                  required:
+                    - environment
+                    - region
+                    - appName
+                  properties:
+                    appName:
+                      type: string
+                      description: "Name of the web application"
+                    environment:
+                      type: string
+                      description: "Target environment: dev, staging, or prod"
+                      enum:
+                        - dev
+                        - staging
+                        - prod
+                    region:
+                      type: string
+                      description: "GCP region for resource deployment"
+                      default: us-central1
+                    machineType:
+                      type: string
+                      description: "GCP machine type for the compute instance"
+                      default: e2-medium
+                    diskSizeGb:
+                      type: integer
+                      description: "Boot disk size in GB"
+                      default: 50
+                      minimum: 20
+                      maximum: 500
+                    bucketLocation:
+                      type: string
+                      description: "GCP storage bucket location"
+                      default: US-CENTRAL1
+                    enableVersioning:
+                      type: boolean
+                      description: "Enable object versioning on the storage bucket"
+                      default: false
+                    networkCidr:
+                      type: string
+                      description: "CIDR block for the VPC subnetwork"
+                      default: "10.0.0.0/24"
+            status:
+              type: object
+              properties:
+                vpcNetworkName:
+                  type: string
+                  description: "Name of the provisioned VPC network"
+                computeInstanceName:
+                  type: string
+                  description: "Name of the provisioned compute instance"
+                storageBucketName:
+                  type: string
+                  description: "Name of the provisioned storage bucket"
+                computeInstanceExternalIP:
+                  type: string
+                  description: "External IP of the compute instance"

@@ -1,0 +1,25 @@
+apiVersion: apiextensions.crossplane.io/v1alpha1
+kind: EnvironmentConfig
+metadata:
+  name: env-dev
+  labels:
+    environment: dev
+  annotations:
+    crossplane.io/description: "EnvironmentConfig for dev environment with cost-optimised small machine types"
+data:
+  environment: dev
+  region: us-central1
+  zone: us-central1-a
+  machineType: e2-micro
+  diskSizeGb: "20"
+  bucketLocation: US-CENTRAL1
+  enableVersioning: "false"
+  networkCidr: "10.0.1.0/24"
+  replicaCount: "1"
+  storageClass: STANDARD
+  maintenanceWindow: "02:00"
+  deletionPolicy: Delete
+  tags:
+    environment: dev
+    tier: development
+    cost-center: engineering

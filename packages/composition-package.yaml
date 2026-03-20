@@ -1,0 +1,11 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Configuration
+metadata:
+  name: web-app-gcp-configuration
+  annotations:
+    crossplane.io/description: "Installs the WebApplication GCP configuration package from OCI registry"
+spec:
+  # Replace with your OCI registry image after running: crossplane xpkg build && crossplane xpkg push
+  package: ghcr.io/your-org/crossplane-web-app-gcp:v0.1.0
+  revisionActivationPolicy: Automatic
+  revisionHistoryLimit: 3

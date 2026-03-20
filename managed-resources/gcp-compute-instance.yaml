@@ -1,0 +1,29 @@
+apiVersion: compute.gcp.upbound.io/v1beta1
+kind: Instance
+metadata:
+  name: gcp-compute-instance-example
+  annotations:
+    crossplane.io/description: "Example GCP Compute Engine VM instance managed resource"
+spec:
+  forProvider:
+    zone: us-central1-a
+    machineType: e2-medium
+    bootDisk:
+      - initializeParams:
+          - image: debian-cloud/debian-11
+            size: 50
+    networkInterface:
+      - network: default
+        accessConfig:
+          - networkTier: PREMIUM
+    tags:
+      items:
+        - http-server
+        - https-server
+    metadata:
+      enable-oslogin: "TRUE"
+    serviceAccount:
+      - scopes:
+          - https://www.googleapis.com/auth/cloud-platform
+  providerConfigRef:
+    name: default

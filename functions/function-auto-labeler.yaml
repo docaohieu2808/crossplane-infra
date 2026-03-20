@@ -1,0 +1,11 @@
+apiVersion: pkg.crossplane.io/v1beta1
+kind: Function
+metadata:
+  name: function-auto-labeler
+  annotations:
+    crossplane.io/description: "Composition function that automatically injects standard labels onto all composed resources"
+spec:
+  package: xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.2.1
+  # NOTE: Replace the package above with the auto-labeler OCI image once built
+  # from custom-function/ directory and published to your registry:
+  # package: ghcr.io/your-org/function-auto-labeler:v0.1.0

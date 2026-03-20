@@ -1,0 +1,60 @@
+# Crossplane Helm values for K3s on Oracle server (10.10.0.5) via Rancher
+# Install: helm install crossplane crossplane-stable/crossplane \
+#   --namespace crossplane-system --create-namespace \
+#   --values install/crossplane-helm-values.yaml
+
+replicas: 1
+
+image:
+  repository: xpkg.upbound.io/crossplane/crossplane
+  tag: v1.15.0
+  pullPolicy: IfNotPresent
+
+# K3s uses containerd; no special nodeSelector needed for standard nodes
+nodeSelector: {}
+tolerations: []
+
+# Resource limits appropriate for a single Oracle server node
+resourcesCrossplane:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+resourcesRBACManager:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+# Enable composition functions (required for L3 pipeline mode)
+args:
+  - --enable-composition-functions
+  - --enable-environment-configs
+  - --enable-composition-revisions
+
+# Metrics for Rancher monitoring stack
+metrics:
+  enabled: true
+
+# Leader election — single replica so effectively no-op but keeps config explicit
+leaderElection: true
+
+# Webhook — required for validation
+webhooks:
+  enabled: true
+
+# Provider security: restrict to crossplane-system namespace
+provider:
+  packages: []
+
+# Package cache backed by a PVC (K3s local-path provisioner)
+packageCache:
+  medium: ""
+  sizeLimit: 5Gi
+  pvc: ""
+  configRef: ""

@@ -1,0 +1,31 @@
+apiVersion: compute.gcp.upbound.io/v1beta1
+kind: Network
+metadata:
+  name: gcp-network-vpc-example
+  annotations:
+    crossplane.io/description: "Example GCP VPC network managed resource"
+spec:
+  forProvider:
+    autoCreateSubnetworks: false
+    routingConfig:
+      - routingMode: REGIONAL
+    description: "VPC network managed by Crossplane"
+  providerConfigRef:
+    name: default
+---
+apiVersion: compute.gcp.upbound.io/v1beta1
+kind: Subnetwork
+metadata:
+  name: gcp-subnetwork-example
+  annotations:
+    crossplane.io/description: "Example GCP subnetwork managed resource"
+spec:
+  forProvider:
+    region: us-central1
+    ipCidrRange: "10.0.0.0/24"
+    networkRef:
+      name: gcp-network-vpc-example
+    description: "Subnetwork managed by Crossplane"
+    privateIpGoogleAccess: true
+  providerConfigRef:
+    name: default

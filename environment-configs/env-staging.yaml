@@ -1,0 +1,25 @@
+apiVersion: apiextensions.crossplane.io/v1alpha1
+kind: EnvironmentConfig
+metadata:
+  name: env-staging
+  labels:
+    environment: staging
+  annotations:
+    crossplane.io/description: "EnvironmentConfig for staging environment with medium machine types matching prod shape"
+data:
+  environment: staging
+  region: us-central1
+  zone: us-central1-b
+  machineType: e2-medium
+  diskSizeGb: "50"
+  bucketLocation: US-CENTRAL1
+  enableVersioning: "true"
+  networkCidr: "10.0.2.0/24"
+  replicaCount: "1"
+  storageClass: STANDARD
+  maintenanceWindow: "03:00"
+  deletionPolicy: Delete
+  tags:
+    environment: staging
+    tier: staging
+    cost-center: engineering
