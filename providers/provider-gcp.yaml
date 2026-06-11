@@ -1,23 +1,57 @@
+# Provider family split: upbound/provider-gcp monolithic (v0.41) is deprecated.
+# Upbound split into per-service providers in 2023; install only what you use.
+# Docs: https://docs.upbound.io/providers/provider-families/
+#
+# Resources used in this repo:
+#   - managed-resources/gcp-storage-bucket.yaml   → provider-gcp-storage
+#   - managed-resources/gcp-compute-instance.yaml → provider-gcp-compute
+#   - managed-resources/gcp-network-vpc.yaml      → provider-gcp-compute (Network/Subnetwork)
+#   - compositions/composition-web-app-gcp.yaml   → both
+#
+# ControllerConfig (pkg.crossplane.io/v1alpha1) was deprecated in Crossplane 1.14.
+# Use DeploymentRuntimeConfig (pkg.crossplane.io/v1beta1) instead.
+
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-gcp-runtime-config
+spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+
+---
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
-  name: provider-gcp
+  name: provider-gcp-storage
   annotations:
-    crossplane.io/description: "Official GCP provider for Crossplane"
+    crossplane.io/description: "Upbound GCP Storage provider family (Bucket, HMAC keys)"
 spec:
-  package: xpkg.upbound.io/upbound/provider-gcp:v0.41.0
-  controllerConfigRef:
-    name: provider-gcp-config
+  package: xpkg.upbound.io/upbound/provider-gcp-storage:v1.12.0
+  runtimeConfigRef:
+    name: provider-gcp-runtime-config
+
 ---
-apiVersion: pkg.crossplane.io/v1alpha1
-kind: ControllerConfig
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
 metadata:
-  name: provider-gcp-config
+  name: provider-gcp-compute
+  annotations:
+    crossplane.io/description: "Upbound GCP Compute provider family (Instance, Network, Subnetwork, Disk, Firewall)"
 spec:
-  resources:
-    requests:
-      memory: "256Mi"
-      cpu: "100m"
-    limits:
-      memory: "512Mi"
-      cpu: "500m"
+  package: xpkg.upbound.io/upbound/provider-gcp-compute:v1.12.0
+  runtimeConfigRef:
+    name: provider-gcp-runtime-config
