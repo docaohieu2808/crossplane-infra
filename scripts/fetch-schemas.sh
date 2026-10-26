@@ -13,7 +13,10 @@ mkdir -p "$out"
 
 gcp_version="$(grep -oE 'provider-gcp-compute:v[0-9]+\.[0-9]+\.[0-9]+' "$root/providers/provider-gcp.yaml" | cut -d: -f2)"
 nop_version="$(grep -oE 'provider-nop:v[0-9]+\.[0-9]+\.[0-9]+' "$root/local-lab/provider-nop.yaml" | cut -d: -f2)"
-[ -n "$gcp_version" ] && [ -n "$nop_version" ] || { echo "cannot read provider versions" >&2; exit 1; }
+if [ -z "$gcp_version" ] || [ -z "$nop_version" ]; then
+  echo "cannot read provider versions" >&2
+  exit 1
+fi
 
 fetch() { # repo version crd-file-name
   curl --fail --silent --show-error --location --retry 3 \

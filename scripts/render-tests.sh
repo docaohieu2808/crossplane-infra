@@ -3,7 +3,7 @@
 # engine and the real functions, run as containers) and assert on the output:
 #   * tests/expected/<xr>.tsv holds `yq expression <TAB> expected value` lines, evaluated on the rendered stream;
 #   * the rendered output must also validate against the XRD and provider schemas.
-# The custom Go function is built from source and run on localhost:9443 (render's "Development" runtime).
+# The custom Go function is built from source and listens on :9443 (render's "Development" runtime; render reaches the host from its container as host.docker.internal).
 # Needs: crossplane CLI, docker, yq (mikefarah v4), go. CROSSPLANE_VERSION picks the render engine.
 set -euo pipefail
 
@@ -20,7 +20,7 @@ mkdir -p "$work"
 
 echo "== build and start function-resource-labeler"
 (cd custom-function && go build -o "$work/function-resource-labeler" .)
-"$work/function-resource-labeler" --insecure --address 127.0.0.1:9443 >"$work/function.log" 2>&1 &
+"$work/function-resource-labeler" --insecure --address :9443 >"$work/function.log" 2>&1 &
 fn_pid=$!
 trap 'kill "$fn_pid" 2>/dev/null || true' EXIT
 for _ in $(seq 1 30); do
@@ -44,7 +44,7 @@ for xr in "${!composition[@]}"; do
     --xrd compositions/xrd-web-application.yaml \
     --required-resources environment-configs/ \
     --crossplane-version "$crossplane_version" \
-    --include-full-xr >"$out"
+    --include-full-xr --timeout 5m >"$out"
 
   while IFS=$'\t' read -r expr want; do
     [ -n "$expr" ] || continue
