@@ -91,6 +91,12 @@ check "vm diskSizeGb from the EnvironmentConfig" "20" "$(nops "$xr-vm" -o jsonpa
 
 echo "== delete $xr and wait for cleanup"
 kubectl -n "$ns" delete "webapplications.infra.example.io/$xr" --wait --timeout=300s
-check "NopResources left after delete" 0 "$(nops --no-headers 2>/dev/null | wc -l | tr -d ' ')"
+# Composed resources are garbage-collected by Kubernetes after the XR is gone, so poll rather than check once.
+for _ in $(seq 1 60); do
+  left="$(nops --no-headers 2>/dev/null | wc -l | tr -d ' ')"
+  [ "$left" = 0 ] && break
+  sleep 2
+done
+check "NopResources left after delete" 0 "$left"
 
 exit "$status"
