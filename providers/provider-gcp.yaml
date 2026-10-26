@@ -1,17 +1,15 @@
-# Provider family split: upbound/provider-gcp monolithic (v0.41) is deprecated.
-# Upbound split into per-service providers in 2023; install only what you use.
-# Docs: https://docs.upbound.io/providers/provider-families/
+# Provider family: provider-upjet-gcp ships one small provider per GCP service plus a shared
+# provider-family-gcp (ProviderConfig types), which the family providers pull in as a dependency.
+# Install only what you use instead of the ~hundreds of CRDs of a monolith.
 #
 # Resources used in this repo:
-#   - managed-resources/gcp-storage-bucket.yaml   → provider-gcp-storage
-#   - managed-resources/gcp-compute-instance.yaml → provider-gcp-compute
-#   - managed-resources/gcp-network-vpc.yaml      → provider-gcp-compute (Network/Subnetwork)
-#   - compositions/composition-web-app-gcp.yaml   → both
+#   - managed-resources/gcp-storage-bucket.yaml   -> provider-gcp-storage
+#   - managed-resources/gcp-compute-instance.yaml -> provider-gcp-compute
+#   - managed-resources/gcp-network-vpc.yaml      -> provider-gcp-compute (Network/Subnetwork)
+#   - compositions/composition-web-app-gcp.yaml  -> both (+ Firewall)
 #
-# ControllerConfig (pkg.crossplane.io/v1alpha1) was deprecated in Crossplane 1.14.
-# Use DeploymentRuntimeConfig (pkg.crossplane.io/v1beta1) instead.
+# DeploymentRuntimeConfig (pkg.crossplane.io/v1beta1) tunes the provider pod; it replaced ControllerConfig.
 
----
 apiVersion: pkg.crossplane.io/v1beta1
 kind: DeploymentRuntimeConfig
 metadata:
@@ -38,9 +36,9 @@ kind: Provider
 metadata:
   name: provider-gcp-storage
   annotations:
-    crossplane.io/description: "Upbound GCP Storage provider family (Bucket, HMAC keys)"
+    crossplane.io/description: "Upbound GCP Storage provider family member (Bucket, HMAC keys)"
 spec:
-  package: xpkg.upbound.io/upbound/provider-gcp-storage:v1.12.0
+  package: xpkg.upbound.io/upbound/provider-gcp-storage:v3.1.0
   runtimeConfigRef:
     name: provider-gcp-runtime-config
 
@@ -50,8 +48,8 @@ kind: Provider
 metadata:
   name: provider-gcp-compute
   annotations:
-    crossplane.io/description: "Upbound GCP Compute provider family (Instance, Network, Subnetwork, Disk, Firewall)"
+    crossplane.io/description: "Upbound GCP Compute provider family member (Instance, Network, Subnetwork, Firewall, Disk)"
 spec:
-  package: xpkg.upbound.io/upbound/provider-gcp-compute:v1.12.0
+  package: xpkg.upbound.io/upbound/provider-gcp-compute:v3.1.0
   runtimeConfigRef:
     name: provider-gcp-runtime-config

@@ -1,5 +1,8 @@
-apiVersion: gcp.upbound.io/v1beta1
-kind: ProviderConfig
+# Cluster-scoped credentials for the namespaced (`*.gcp.m.upbound.io`) managed resources of provider-upjet-gcp v3.
+# The key stays in a Secret (see README): no credentials in git. Use a namespaced `ProviderConfig` instead to
+# give one namespace its own GCP project.
+apiVersion: gcp.m.upbound.io/v1beta1
+kind: ClusterProviderConfig
 metadata:
   name: default
 spec:

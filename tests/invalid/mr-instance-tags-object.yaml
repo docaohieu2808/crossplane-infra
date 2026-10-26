@@ -1,0 +1,19 @@
+# expect: tags
+# The pre-v3 shape of Instance tags (an object with items): tags is a list of strings.
+apiVersion: compute.gcp.m.upbound.io/v1beta1
+kind: Instance
+metadata:
+  name: bad-instance
+  namespace: default
+spec:
+  forProvider:
+    zone: us-central1-a
+    machineType: e2-medium
+    bootDisk:
+      initializeParams:
+        image: debian-cloud/debian-12
+    networkInterface:
+      - network: default
+    tags:
+      items:
+        - http-server

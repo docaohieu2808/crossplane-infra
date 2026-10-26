@@ -1,0 +1,152 @@
+# Proves every level of the ladder on current versions, on every push and once a week:
+# - lint:      actionlint, yamllint, shellcheck, every action pinned to a real commit;
+# - function:  the custom Go function (tidy, vet, golangci-lint, tests with -race, build);
+# - validate:  `crossplane resource validate` of every manifest against Crossplane + provider schemas, and a set of
+#              deliberately wrong manifests that must be rejected;
+# - render:    `crossplane composition render` of every Composition with sample XRs (functions run as containers,
+#              the custom function from source), assertions on the output, rendered output validated;
+# - package:   `crossplane xpkg build` of the Configuration package;
+# - kind:      Crossplane from the Helm chart on a kind cluster, the functions (custom one via a local registry) and
+#              provider-nop installed, and a WebApplication reconciled to Ready without any cloud account.
+# Not run: anything that talks to GCP. The GCP Composition is rendered and validated against the provider's
+# schemas, but never reconciled (that needs a GCP project and credentials).
+name: ci
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "23 3 * * 1" # Mondays 10:23 Asia/Saigon
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CROSSPLANE_CLI_VERSION: v2.4.1 # the CLI is versioned separately from the core since v2.3
+  CROSSPLANE_VERSION: v2.4.3 # core version the schemas and the render engine come from; keep equal to the Helm chart
+  GO_VERSION: "1.27"
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: actionlint
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+        run: |
+          bash <(curl -sSfL "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash") "$ACTIONLINT_VERSION"
+          ./actionlint -color
+      - name: yamllint
+        run: |
+          pip install --quiet yamllint==1.38.0
+          yamllint --strict .
+      - name: shellcheck
+        run: shellcheck scripts/*.sh
+      - name: Every action is pinned to a commit SHA that exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # An annotated tag object's SHA looks like a commit SHA but fails when a job runs, so ask the API.
+          refs=$(grep -rhE '^[[:space:]]*(- )?uses: *[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@' .github \
+            | sed -E 's/^[[:space:]]*(- )?uses: *//; s/[[:space:]].*$//' | sort -u)
+          status=0
+          while IFS=@ read -r ref sha; do
+            repo=$(echo "$ref" | cut -d/ -f1-2)
+            if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then echo "FAIL $ref@$sha is not pinned to a SHA"; status=1
+            elif gh api "repos/$repo/commits/$sha" --jq .sha >/dev/null 2>&1; then echo "ok   $ref@$sha"
+            else echo "FAIL $ref@$sha is not a commit"; status=1; fi
+          done <<< "$refs"
+          exit "$status"
+
+  function:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: custom-function
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: custom-function/go.sum
+      - name: go.mod and go.sum are tidy
+        run: go mod tidy && git diff --exit-code go.mod go.sum
+      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.15.0
+          working-directory: custom-function
+      - run: go test -race -cover ./...
+      - run: go build -o /dev/null .
+
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the crossplane CLI
+        run: |
+          curl -sfL https://cli.crossplane.io/install.sh | XP_VERSION="$CROSSPLANE_CLI_VERSION" sh
+          sudo mv crossplane /usr/local/bin/crossplane
+      - run: scripts/validate-manifests.sh
+
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: custom-function/go.sum
+      - name: Install the crossplane CLI
+        run: |
+          curl -sfL https://cli.crossplane.io/install.sh | XP_VERSION="$CROSSPLANE_CLI_VERSION" sh
+          sudo mv crossplane /usr/local/bin/crossplane
+      - run: scripts/render-tests.sh
+
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the crossplane CLI
+        run: |
+          curl -sfL https://cli.crossplane.io/install.sh | XP_VERSION="$CROSSPLANE_CLI_VERSION" sh
+          sudo mv crossplane /usr/local/bin/crossplane
+      - run: scripts/build-configuration-package.sh
+
+  kind:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the crossplane CLI
+        run: |
+          curl -sfL https://cli.crossplane.io/install.sh | XP_VERSION="$CROSSPLANE_CLI_VERSION" sh
+          sudo mv crossplane /usr/local/bin/crossplane
+      - uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
+        with:
+          version: v0.33.0
+          cluster_name: kind
+          node_image: kindest/node:v1.36.4@sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed
+      - name: Reconcile a WebApplication on kind
+        run: scripts/kind-e2e.sh
+      - name: Diagnostics
+        if: failure()
+        run: scripts/kind-diagnostics.sh

@@ -1,0 +1,19 @@
+[select(.metadata.labels."crossplane.io/composite" == "shop-dev")] | length	5
+[select(.metadata.namespace == "team-shop" and .kind != "WebApplication")] | length	5
+[select(.metadata.labels."infra.example.io/composition" == "web-app-gcp" and .metadata.labels."app.kubernetes.io/managed-by" == "crossplane")] | length	5
+select(.kind == "Instance") | .spec.forProvider.machineType	e2-micro
+select(.kind == "Instance") | .spec.forProvider.zone	us-central1-a
+select(.kind == "Instance") | .spec.forProvider.bootDisk.initializeParams.size	20
+select(.kind == "Instance") | .spec.forProvider.bootDisk.initializeParams.image	debian-cloud/debian-12
+select(.kind == "Instance") | .spec.forProvider.deletionProtection	false
+select(.kind == "Instance") | .spec.forProvider.networkInterface[0] | has("accessConfig")	false
+select(.kind == "Instance") | .spec.forProvider.labels.tier	development
+select(.kind == "Subnetwork") | .spec.forProvider.ipCidrRange	10.0.1.0/24
+select(.kind == "Subnetwork") | .spec.forProvider.region	us-central1
+select(.kind == "Network") | .spec.forProvider.routingMode	REGIONAL
+select(.kind == "Bucket") | .metadata.annotations."crossplane.io/external-name"	shop-dev-bucket
+select(.kind == "Bucket") | .spec.forProvider.location	US-CENTRAL1
+select(.kind == "Bucket") | .spec.forProvider.versioning.enabled	false
+select(.kind == "Bucket") | .spec.forProvider.publicAccessPrevention	enforced
+select(.kind == "Firewall") | .spec.forProvider.sourceRanges[0]	35.235.240.0/20
+select(.kind == "Firewall") | .spec.forProvider.allow[0].ports[0]	22

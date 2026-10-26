@@ -1,0 +1,94 @@
+# Second implementation of the same WebApplication API, backed by provider-nop instead of GCP. An XR picks it
+# with `spec.crossplane.compositionSelector.matchLabels: {provider: nop}`. It exists so the full pipeline
+# (EnvironmentConfig -> go-templating -> custom Go function -> auto-ready) reconciles to Ready with no cloud
+# account: that is what the kind job in CI does. Same API, different backend, is the point of Compositions.
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: web-app-nop
+  labels:
+    provider: nop
+    type: web-application
+  annotations:
+    crossplane.io/description: "provider-nop implementation of the WebApplication XRD for local labs and CI"
+spec:
+  compositeTypeRef:
+    apiVersion: infra.example.io/v1alpha1
+    kind: WebApplication
+  mode: Pipeline
+  pipeline:
+    - step: load-environment
+      functionRef:
+        name: function-environment-configs
+      input:
+        apiVersion: environmentconfigs.fn.crossplane.io/v1beta1
+        kind: Input
+        spec:
+          environmentConfigs:
+            - type: Selector
+              selector:
+                mode: Single
+                matchLabels:
+                  - key: environment
+                    type: FromCompositeFieldPath
+                    valueFromFieldPath: spec.parameters.environment
+
+    - step: render-resources
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $xr := .observed.composite.resource }}
+            {{- $p := $xr.spec.parameters }}
+            {{- $env := index .context "apiextensions.crossplane.io/environment" }}
+            {{- $machine := $p.machineType | default $env.machineType }}
+            {{- $disk := $p.diskSizeGb | default $env.diskSizeGb }}
+            {{- $region := $p.region | default $env.region }}
+            {{- range $name := list "vpc" "vm" "bucket" }}
+            ---
+            apiVersion: nop.crossplane.io/v1alpha1
+            kind: NopResource
+            metadata:
+              name: {{ $xr.metadata.name }}-{{ $name }}
+              annotations:
+                {{ setResourceNameAnnotation $name }}
+            spec:
+              forProvider:
+                fields:
+                  kind: {{ $name }}
+                  region: {{ $region }}
+                  {{- if eq $name "vm" }}
+                  machineType: {{ $machine }}
+                  diskSizeGb: {{ $disk }}
+                  {{- end }}
+                  environment: {{ $p.environment }}
+                conditionAfter:
+                  - time: 1s
+                    conditionType: Ready
+                    conditionStatus: "True"
+            {{- end }}
+            ---
+            apiVersion: infra.example.io/v1alpha1
+            kind: WebApplication
+            status:
+              vpcNetworkName: {{ $xr.metadata.name }}-vpc
+              computeInstanceName: {{ $xr.metadata.name }}-vm
+              storageBucketName: {{ $xr.metadata.name }}-bucket
+
+    - step: label-resources
+      functionRef:
+        name: function-resource-labeler
+      input:
+        apiVersion: resourcelabeler.fn.example.io/v1beta1
+        kind: Input
+        labels:
+          app.kubernetes.io/managed-by: crossplane
+          infra.example.io/composition: web-app-nop
+
+    - step: mark-ready
+      functionRef:
+        name: function-auto-ready

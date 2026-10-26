@@ -1,0 +1,14 @@
+# Crossplane v2: a provider's managed-resource CRDs stay inactive until a ManagedResourceActivationPolicy
+# activates them, so the cluster only carries the kinds you use. The Helm values in install/ turn off the
+# default "activate everything" policy; this one activates just what this repo's Compositions need.
+apiVersion: apiextensions.crossplane.io/v1alpha1
+kind: ManagedResourceActivationPolicy
+metadata:
+  name: gcp-web-application
+spec:
+  activate:
+    - networks.compute.gcp.m.upbound.io
+    - subnetworks.compute.gcp.m.upbound.io
+    - firewalls.compute.gcp.m.upbound.io
+    - instances.compute.gcp.m.upbound.io
+    - buckets.storage.gcp.m.upbound.io

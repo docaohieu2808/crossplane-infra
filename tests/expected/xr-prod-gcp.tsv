@@ -1,0 +1,12 @@
+[select(.metadata.labels."crossplane.io/composite" == "shop-prod")] | length	5
+[select(.metadata.labels."infra.example.io/composition" == "web-app-gcp")] | length	5
+select(.kind == "Instance") | .spec.forProvider.machineType	e2-standard-8
+select(.kind == "Instance") | .spec.forProvider.zone	europe-west1-a
+select(.kind == "Instance") | .spec.forProvider.bootDisk.initializeParams.size	200
+select(.kind == "Instance") | .spec.forProvider.deletionProtection	true
+select(.kind == "Instance") | .spec.forProvider.labels."compliance"	required
+select(.kind == "Subnetwork") | .spec.forProvider.ipCidrRange	10.9.0.0/24
+select(.kind == "Subnetwork") | .spec.forProvider.region	europe-west1
+select(.kind == "Bucket") | .metadata.annotations."crossplane.io/external-name"	shop-prod-bucket
+select(.kind == "Bucket") | .spec.forProvider.location	US
+select(.kind == "Bucket") | .spec.forProvider.versioning.enabled	true

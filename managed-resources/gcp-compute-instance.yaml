@@ -1,29 +1,31 @@
-apiVersion: compute.gcp.upbound.io/v1beta1
+apiVersion: compute.gcp.m.upbound.io/v1beta1
 kind: Instance
 metadata:
   name: gcp-compute-instance-example
+  namespace: default
   annotations:
-    crossplane.io/description: "Example GCP Compute Engine VM instance managed resource"
+    crossplane.io/description: "Example GCP Compute Engine VM, no external IP, in the subnetwork from gcp-network-vpc.yaml"
 spec:
   forProvider:
     zone: us-central1-a
     machineType: e2-medium
     bootDisk:
-      - initializeParams:
-          - image: debian-cloud/debian-11
-            size: 50
+      initializeParams:
+        image: debian-cloud/debian-12
+        size: 50
     networkInterface:
-      - network: default
-        accessConfig:
-          - networkTier: PREMIUM
+      - networkRef:
+          name: gcp-network-vpc-example
+        subnetworkRef:
+          name: gcp-subnetwork-example
     tags:
-      items:
-        - http-server
-        - https-server
+      - web
     metadata:
       enable-oslogin: "TRUE"
     serviceAccount:
-      - scopes:
-          - https://www.googleapis.com/auth/cloud-platform
+      scopes:
+        - https://www.googleapis.com/auth/logging.write
+        - https://www.googleapis.com/auth/monitoring.write
   providerConfigRef:
+    kind: ClusterProviderConfig
     name: default

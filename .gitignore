@@ -23,3 +23,6 @@ charts/
 # Local override files
 *.local.yaml
 *.override.yaml
+
+# Local build output
+build/

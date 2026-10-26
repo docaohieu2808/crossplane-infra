@@ -1,0 +1,15 @@
+# A namespaced XR (Crossplane v2): created by an app team, directly in its own namespace.
+apiVersion: infra.example.io/v1alpha1
+kind: WebApplication
+metadata:
+  name: my-web-app-dev
+  namespace: default
+  annotations:
+    crossplane.io/description: "Example WebApplication for the dev environment, implemented by the GCP Composition"
+spec:
+  crossplane:
+    compositionRef:
+      name: web-app-gcp
+  parameters:
+    appName: my-web-app
+    environment: dev

@@ -1,0 +1,13 @@
+---
+apiVersion: meta.pkg.crossplane.io/v1
+kind: Function
+metadata:
+  name: function-resource-labeler
+  annotations:
+    meta.crossplane.io/maintainer: Do Cao Hieu
+    meta.crossplane.io/source: github.com/docaohieu2808/crossplane-infra
+    meta.crossplane.io/license: MIT
+    meta.crossplane.io/description: A Crossplane composition function that stamps labels on every composed resource.
+spec:
+  crossplane:
+    version: ">=v2.0.0-0"

@@ -1,0 +1,15 @@
+# Same API as the GCP samples, but the Composition is chosen by label: provider-nop backs it.
+apiVersion: infra.example.io/v1alpha1
+kind: WebApplication
+metadata:
+  name: shop-dev-nop
+  namespace: team-shop
+spec:
+  crossplane:
+    compositionSelector:
+      matchLabels:
+        provider: nop
+  parameters:
+    appName: shop
+    environment: dev
+    machineType: e2-small

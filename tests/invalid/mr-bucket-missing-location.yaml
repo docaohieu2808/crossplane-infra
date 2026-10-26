@@ -1,0 +1,9 @@
+# expect: spec.forProvider.location is a required parameter
+apiVersion: storage.gcp.m.upbound.io/v1beta2
+kind: Bucket
+metadata:
+  name: bad-bucket
+  namespace: default
+spec:
+  forProvider:
+    storageClass: STANDARD

@@ -1,24 +1,24 @@
-apiVersion: apiextensions.crossplane.io/v1alpha1
+# EnvironmentConfig is cluster-scoped and read by function-environment-configs, which selects it by the
+# `environment` label and exposes `data` to later pipeline steps. An XR can still override any value.
+apiVersion: apiextensions.crossplane.io/v1beta1
 kind: EnvironmentConfig
 metadata:
   name: env-dev
   labels:
     environment: dev
   annotations:
-    crossplane.io/description: "EnvironmentConfig for dev environment with cost-optimised small machine types"
+    crossplane.io/description: "EnvironmentConfig for the dev environment with cost-optimised small machine types"
 data:
   environment: dev
   region: us-central1
   zone: us-central1-a
   machineType: e2-micro
-  diskSizeGb: "20"
+  diskSizeGb: 20
   bucketLocation: US-CENTRAL1
-  enableVersioning: "false"
+  enableVersioning: false
   networkCidr: "10.0.1.0/24"
-  replicaCount: "1"
+  deletionProtection: false
   storageClass: STANDARD
-  maintenanceWindow: "02:00"
-  deletionPolicy: Delete
   tags:
     environment: dev
     tier: development

@@ -1,24 +1,28 @@
-# Crossplane Helm values for K3s on Oracle server (10.10.0.5) via Rancher
-# Install: helm install crossplane crossplane-stable/crossplane \
-#   --namespace crossplane-system --create-namespace \
-#   --values install/crossplane-helm-values.yaml
+# Crossplane v2 Helm values (chart crossplane-stable/crossplane 2.4.3).
+# Install:
+#   helm repo add crossplane-stable https://charts.crossplane.io/stable && helm repo update
+#   helm install crossplane crossplane-stable/crossplane --version 2.4.3 \
+#     --namespace crossplane-system --create-namespace -f install/crossplane-helm-values.yaml
+#
+# Composition functions, composition revisions and EnvironmentConfigs are always on in Crossplane v2, so the old
+# `--enable-composition-functions`, `--enable-environment-configs` and `--enable-composition-revisions` args are
+# gone and Crossplane v2 does not accept them.
 
 replicas: 1
 
 image:
-  repository: xpkg.upbound.io/crossplane/crossplane
-  tag: v1.15.0
+  repository: xpkg.crossplane.io/crossplane/crossplane
+  # Empty = the chart's appVersion (2.4.3).
+  tag: ""
   pullPolicy: IfNotPresent
 
-# K3s uses containerd; no special nodeSelector needed for standard nodes
 nodeSelector: {}
 tolerations: []
 
-# Resource limits appropriate for a single Oracle server node
 resourcesCrossplane:
   limits:
     cpu: 500m
-    memory: 512Mi
+    memory: 1024Mi
   requests:
     cpu: 100m
     memory: 256Mi
@@ -26,35 +30,33 @@ resourcesCrossplane:
 resourcesRBACManager:
   limits:
     cpu: 100m
-    memory: 128Mi
+    memory: 512Mi
   requests:
     cpu: 50m
     memory: 64Mi
 
-# Enable composition functions (required for L3 pipeline mode)
-args:
-  - --enable-composition-functions
-  - --enable-environment-configs
-  - --enable-composition-revisions
+# No extra flags needed.
+args: []
 
-# Metrics for Rancher monitoring stack
 metrics:
   enabled: true
 
-# Leader election — single replica so effectively no-op but keeps config explicit
+# Single replica, but keep leader election explicit so scaling out later is a one-line change.
 leaderElection: true
 
-# Webhook — required for validation
 webhooks:
   enabled: true
 
-# Provider security: restrict to crossplane-system namespace
 provider:
+  # Providers are installed from providers/ (declarative, GitOps friendly), not through Helm values.
   packages: []
+  # Do not activate every managed resource CRD of every provider; providers/managed-resource-activation-policy.yaml
+  # activates only the kinds this repo uses.
+  defaultActivations: []
 
-# Package cache backed by a PVC (K3s local-path provisioner)
+# Keep the downloaded packages (providers, functions) across Crossplane pod restarts: point this at a
+# PersistentVolumeClaim. Empty = an emptyDir, which is fine for a lab and for CI.
 packageCache:
   medium: ""
   sizeLimit: 5Gi
   pvc: ""
-  configRef: ""

@@ -1,27 +1,42 @@
+# Pipeline-mode Composition (the only mode in Crossplane v2) that implements WebApplication on GCP.
+#
+#   1. load-environment  function-environment-configs: pick the EnvironmentConfig for spec.parameters.environment
+#   2. render-resources  function-patch-and-transform: VPC, subnet, firewall, VM, bucket. Per-environment values
+#                        come from the EnvironmentConfig; spec.parameters on the XR overrides them
+#   3. label-resources   function-resource-labeler (custom Go function in custom-function/): stamp labels
+#
+# The XR is namespaced, so every composed resource is namespaced too: the `*.gcp.m.upbound.io` API groups of
+# provider-upjet-gcp, and a ClusterProviderConfig (cluster-scoped, usable from any namespace).
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
-  name: composition-web-app-gcp
+  name: web-app-gcp
   labels:
     provider: gcp
     type: web-application
   annotations:
-    crossplane.io/description: "GCP implementation composing VPC + VM + Storage bucket for WebApplication XRD"
+    crossplane.io/description: "GCP implementation composing VPC + firewall + VM + storage bucket for the WebApplication XRD"
 spec:
   compositeTypeRef:
     apiVersion: infra.example.io/v1alpha1
-    kind: XWebApplication
+    kind: WebApplication
   mode: Pipeline
   pipeline:
-    - step: auto-label-resources
+    - step: load-environment
       functionRef:
-        name: function-auto-labeler
+        name: function-environment-configs
       input:
-        apiVersion: auto-labeler.fn.example.io/v1beta1
+        apiVersion: environmentconfigs.fn.crossplane.io/v1beta1
         kind: Input
-        labels:
-          managed-by: crossplane
-          composition: web-app-gcp
+        spec:
+          environmentConfigs:
+            - type: Selector
+              selector:
+                mode: Single
+                matchLabels:
+                  - key: environment
+                    type: FromCompositeFieldPath
+                    valueFromFieldPath: spec.parameters.environment
 
     - step: render-resources
       functionRef:
@@ -30,26 +45,19 @@ spec:
         apiVersion: pt.fn.crossplane.io/v1beta1
         kind: Resources
         resources:
-          # VPC Network
+          # VPC network (custom-mode: subnets are created explicitly)
           - name: vpc-network
             base:
-              apiVersion: compute.gcp.upbound.io/v1beta1
+              apiVersion: compute.gcp.m.upbound.io/v1beta1
               kind: Network
               spec:
                 forProvider:
                   autoCreateSubnetworks: false
-                  routingConfig:
-                    - routingMode: REGIONAL
+                  routingMode: REGIONAL
                 providerConfigRef:
+                  kind: ClusterProviderConfig
                   name: default
             patches:
-              - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.appName
-                toFieldPath: metadata.name
-                transforms:
-                  - type: string
-                    string:
-                      fmt: "%s-vpc"
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.environment
                 toFieldPath: metadata.labels.environment
@@ -60,153 +68,168 @@ spec:
           # Subnetwork
           - name: subnetwork
             base:
-              apiVersion: compute.gcp.upbound.io/v1beta1
+              apiVersion: compute.gcp.m.upbound.io/v1beta1
               kind: Subnetwork
               spec:
                 forProvider:
                   privateIpGoogleAccess: true
+                  networkSelector:
+                    matchControllerRef: true
                 providerConfigRef:
+                  kind: ClusterProviderConfig
                   name: default
             patches:
-              - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.appName
-                toFieldPath: metadata.name
-                transforms:
-                  - type: string
-                    string:
-                      fmt: "%s-subnet"
+              - type: FromEnvironmentFieldPath
+                fromFieldPath: region
+                toFieldPath: spec.forProvider.region
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.region
                 toFieldPath: spec.forProvider.region
+              - type: FromEnvironmentFieldPath
+                fromFieldPath: networkCidr
+                toFieldPath: spec.forProvider.ipCidrRange
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.networkCidr
                 toFieldPath: spec.forProvider.ipCidrRange
-              - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.appName
-                toFieldPath: spec.forProvider.networkRef.name
-                transforms:
-                  - type: string
-                    string:
-                      fmt: "%s-vpc"
 
-          # Compute Instance
+          # Firewall: SSH only through Identity-Aware Proxy (35.235.240.0/20 is Google's IAP range), no public IP
+          - name: firewall-iap-ssh
+            base:
+              apiVersion: compute.gcp.m.upbound.io/v1beta1
+              kind: Firewall
+              spec:
+                forProvider:
+                  direction: INGRESS
+                  sourceRanges:
+                    - 35.235.240.0/20
+                  targetTags:
+                    - web
+                  allow:
+                    - protocol: tcp
+                      ports:
+                        - "22"
+                  networkSelector:
+                    matchControllerRef: true
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+
+          # Compute instance: no accessConfig, so no external IP; OS Login on; narrow API scopes
           - name: compute-instance
             base:
-              apiVersion: compute.gcp.upbound.io/v1beta1
+              apiVersion: compute.gcp.m.upbound.io/v1beta1
               kind: Instance
               spec:
                 forProvider:
                   bootDisk:
-                    - initializeParams:
-                        - image: debian-cloud/debian-11
+                    initializeParams:
+                      image: debian-cloud/debian-12
                   networkInterface:
-                    - accessConfig:
-                        - networkTier: PREMIUM
+                    - networkSelector:
+                        matchControllerRef: true
+                      subnetworkSelector:
+                        matchControllerRef: true
                   metadata:
                     enable-oslogin: "TRUE"
                   serviceAccount:
-                    - scopes:
-                        - https://www.googleapis.com/auth/cloud-platform
+                    scopes:
+                      - https://www.googleapis.com/auth/logging.write
+                      - https://www.googleapis.com/auth/monitoring.write
                   tags:
-                    items:
-                      - http-server
-                      - https-server
+                    - web
                 providerConfigRef:
+                  kind: ClusterProviderConfig
                   name: default
             patches:
-              - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.appName
-                toFieldPath: metadata.name
-                transforms:
-                  - type: string
-                    string:
-                      fmt: "%s-vm"
+              - type: FromEnvironmentFieldPath
+                fromFieldPath: zone
+                toFieldPath: spec.forProvider.zone
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.region
                 toFieldPath: spec.forProvider.zone
                 transforms:
                   - type: string
                     string:
+                      type: Format
                       fmt: "%s-a"
+              - type: FromEnvironmentFieldPath
+                fromFieldPath: machineType
+                toFieldPath: spec.forProvider.machineType
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.machineType
                 toFieldPath: spec.forProvider.machineType
+              - type: FromEnvironmentFieldPath
+                fromFieldPath: diskSizeGb
+                toFieldPath: spec.forProvider.bootDisk.initializeParams.size
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.diskSizeGb
-                toFieldPath: spec.forProvider.bootDisk[0].initializeParams[0].size
-              - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.appName
-                toFieldPath: spec.forProvider.networkInterface[0].networkRef.name
-                transforms:
-                  - type: string
-                    string:
-                      fmt: "%s-vpc"
-              - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.appName
-                toFieldPath: spec.forProvider.networkInterface[0].subnetworkRef.name
-                transforms:
-                  - type: string
-                    string:
-                      fmt: "%s-subnet"
-              - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.environment
-                toFieldPath: metadata.labels.environment
+                toFieldPath: spec.forProvider.bootDisk.initializeParams.size
+              - type: FromEnvironmentFieldPath
+                fromFieldPath: deletionProtection
+                toFieldPath: spec.forProvider.deletionProtection
+              - type: FromEnvironmentFieldPath
+                fromFieldPath: tags
+                toFieldPath: spec.forProvider.labels
               - type: ToCompositeFieldPath
                 fromFieldPath: metadata.name
                 toFieldPath: status.computeInstanceName
 
-          # Storage Bucket
+          # Storage bucket: bucket names are global in GCS, so appName and environment form the name
           - name: storage-bucket
             base:
-              apiVersion: storage.gcp.upbound.io/v1beta1
+              apiVersion: storage.gcp.m.upbound.io/v1beta2
               kind: Bucket
               spec:
                 forProvider:
-                  storageClass: STANDARD
                   uniformBucketLevelAccess: true
+                  publicAccessPrevention: enforced
                   lifecycleRule:
                     - action:
-                        - type: Delete
+                        type: Delete
                       condition:
-                        - age: 90
-                          withState: ANY
+                        age: 90
+                        withState: ANY
                 providerConfigRef:
+                  kind: ClusterProviderConfig
                   name: default
             patches:
-              - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.appName
-                toFieldPath: metadata.name
-                transforms:
-                  - type: string
-                    string:
-                      fmt: "%s-bucket"
+              - type: CombineFromComposite
+                combine:
+                  variables:
+                    - fromFieldPath: spec.parameters.appName
+                    - fromFieldPath: spec.parameters.environment
+                  strategy: string
+                  string:
+                    fmt: "%s-%s-bucket"
+                toFieldPath: metadata.annotations[crossplane.io/external-name]
+              - type: FromEnvironmentFieldPath
+                fromFieldPath: bucketLocation
+                toFieldPath: spec.forProvider.location
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.bucketLocation
                 toFieldPath: spec.forProvider.location
+              - type: FromEnvironmentFieldPath
+                fromFieldPath: storageClass
+                toFieldPath: spec.forProvider.storageClass
+              - type: FromEnvironmentFieldPath
+                fromFieldPath: enableVersioning
+                toFieldPath: spec.forProvider.versioning.enabled
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.parameters.enableVersioning
-                toFieldPath: spec.forProvider.versioning[0].enabled
-              - type: FromCompositeFieldPath
-                fromFieldPath: spec.parameters.environment
-                toFieldPath: spec.forProvider.labels.environment
+                toFieldPath: spec.forProvider.versioning.enabled
+              - type: FromEnvironmentFieldPath
+                fromFieldPath: tags
+                toFieldPath: spec.forProvider.labels
               - type: ToCompositeFieldPath
-                fromFieldPath: metadata.name
+                fromFieldPath: metadata.annotations[crossplane.io/external-name]
                 toFieldPath: status.storageBucketName
 
-    - step: environment-patches
+    - step: label-resources
       functionRef:
-        name: function-environment-configs
+        name: function-resource-labeler
       input:
-        apiVersion: environmentconfigs.fn.crossplane.io/v1beta1
+        apiVersion: resourcelabeler.fn.example.io/v1beta1
         kind: Input
-        environmentConfigs:
-          - type: Reference
-            ref:
-              name: environment-config-selector
-        patches:
-          - type: FromEnvironmentFieldPath
-            fromFieldPath: machineType
-            toFieldPath: spec.parameters.machineType
-          - type: FromEnvironmentFieldPath
-            fromFieldPath: region
-            toFieldPath: spec.parameters.region
+        labels:
+          app.kubernetes.io/managed-by: crossplane
+          infra.example.io/composition: web-app-gcp

@@ -1,0 +1,13 @@
+# Dev XR: everything but appName and environment comes from env-dev.
+apiVersion: infra.example.io/v1alpha1
+kind: WebApplication
+metadata:
+  name: shop-dev
+  namespace: team-shop
+spec:
+  crossplane:
+    compositionRef:
+      name: web-app-gcp
+  parameters:
+    appName: shop
+    environment: dev

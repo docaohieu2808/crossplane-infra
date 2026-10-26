@@ -1,11 +1,12 @@
+# Installs the Configuration package built from packages/crossplane.yaml. Build and push it to a registry you
+# own first (scripts/build-configuration-package.sh builds it), then replace the placeholder below.
 apiVersion: pkg.crossplane.io/v1
 kind: Configuration
 metadata:
   name: web-app-gcp-configuration
   annotations:
-    crossplane.io/description: "Installs the WebApplication GCP configuration package from OCI registry"
+    crossplane.io/description: "Installs the WebApplication GCP configuration package from an OCI registry"
 spec:
-  # Replace with your OCI registry image after running: crossplane xpkg build && crossplane xpkg push
-  package: ghcr.io/your-org/crossplane-web-app-gcp:v0.1.0
+  package: registry.example.com/crossplane-web-app-gcp:v0.1.0
   revisionActivationPolicy: Automatic
   revisionHistoryLimit: 3

@@ -1,15 +1,15 @@
-apiVersion: apiextensions.crossplane.io/v1
+# Crossplane v2 XRD: `apiextensions.crossplane.io/v2` with `scope: Namespaced`. There is no Claim and no
+# `X`-prefixed kind any more: app teams create a WebApplication directly in their own namespace.
+apiVersion: apiextensions.crossplane.io/v2
 kind: CompositeResourceDefinition
 metadata:
-  name: xwebapplications.infra.example.io
+  name: webapplications.infra.example.io
   annotations:
-    crossplane.io/description: "XRD defining the WebApplication composite resource schema"
+    crossplane.io/description: "XRD defining the namespaced WebApplication composite resource"
 spec:
+  scope: Namespaced
   group: infra.example.io
   names:
-    kind: XWebApplication
-    plural: xwebapplications
-  claimNames:
     kind: WebApplication
     plural: webapplications
   versions:
@@ -27,14 +27,17 @@ spec:
               properties:
                 parameters:
                   type: object
+                  description: >-
+                    Only appName and environment are required. Everything else falls back to the
+                    EnvironmentConfig selected by `environment`, and can be overridden here.
                   required:
                     - environment
-                    - region
                     - appName
                   properties:
                     appName:
                       type: string
-                      description: "Name of the web application"
+                      description: "Name of the web application (lowercase letters, digits and dashes)"
+                      pattern: "^[a-z][a-z0-9-]{1,28}[a-z0-9]$"
                     environment:
                       type: string
                       description: "Target environment: dev, staging, or prod"
@@ -44,30 +47,27 @@ spec:
                         - prod
                     region:
                       type: string
-                      description: "GCP region for resource deployment"
-                      default: us-central1
+                      description: "GCP region for resource deployment (default from the EnvironmentConfig)"
                     machineType:
                       type: string
-                      description: "GCP machine type for the compute instance"
-                      default: e2-medium
+                      description: "GCP machine type for the compute instance (default from the EnvironmentConfig)"
                     diskSizeGb:
                       type: integer
-                      description: "Boot disk size in GB"
-                      default: 50
+                      description: "Boot disk size in GB (default from the EnvironmentConfig)"
                       minimum: 20
                       maximum: 500
                     bucketLocation:
                       type: string
-                      description: "GCP storage bucket location"
-                      default: US-CENTRAL1
+                      description: "GCP storage bucket location (default from the EnvironmentConfig)"
                     enableVersioning:
                       type: boolean
-                      description: "Enable object versioning on the storage bucket"
-                      default: false
+                      description: "Enable object versioning on the storage bucket (default from the EnvironmentConfig)"
                     networkCidr:
                       type: string
-                      description: "CIDR block for the VPC subnetwork"
-                      default: "10.0.0.0/24"
+                      description: "CIDR block for the VPC subnetwork (default from the EnvironmentConfig)"
+              x-kubernetes-validations:
+                - rule: "self.parameters.environment != 'prod' || !has(self.parameters.diskSizeGb) || self.parameters.diskSizeGb >= 50"
+                  message: "prod boot disks must be at least 50 GB"
             status:
               type: object
               properties:
@@ -80,6 +80,3 @@ spec:
                 storageBucketName:
                   type: string
                   description: "Name of the provisioned storage bucket"
-                computeInstanceExternalIP:
-                  type: string
-                  description: "External IP of the compute instance"

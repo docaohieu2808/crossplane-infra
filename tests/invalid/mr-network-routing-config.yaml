@@ -1,0 +1,12 @@
+# expect: routingConfig
+# The pre-v3 shape of Network: routingMode is a plain string, there is no routingConfig block.
+apiVersion: compute.gcp.m.upbound.io/v1beta1
+kind: Network
+metadata:
+  name: bad-network
+  namespace: default
+spec:
+  forProvider:
+    autoCreateSubnetworks: false
+    routingConfig:
+      - routingMode: REGIONAL

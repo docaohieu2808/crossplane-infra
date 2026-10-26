@@ -1,0 +1,17 @@
+# Prod XR overriding the environment defaults: bigger disk, other region, other CIDR.
+apiVersion: infra.example.io/v1alpha1
+kind: WebApplication
+metadata:
+  name: shop-prod
+  namespace: team-shop
+spec:
+  crossplane:
+    compositionRef:
+      name: web-app-gcp
+  parameters:
+    appName: shop
+    environment: prod
+    region: europe-west1
+    machineType: e2-standard-8
+    diskSizeGb: 200
+    networkCidr: 10.9.0.0/24

@@ -1,0 +1,15 @@
+# Custom function built from custom-function/ (Go, function-sdk-go). Unlike the public functions here it has no
+# public registry: build and push it to a registry your cluster can pull from, then edit `package`:
+#   cd custom-function && docker build -t <registry>/function-resource-labeler:v0.1.0 .
+#   crossplane xpkg build --package-root=package --embed-runtime-image=<registry>/function-resource-labeler:v0.1.0 \
+#     -o function-resource-labeler.xpkg
+#   crossplane xpkg push -f function-resource-labeler.xpkg <registry>/function-resource-labeler:v0.1.0
+# CI does exactly this against a throwaway local registry in the kind job.
+apiVersion: pkg.crossplane.io/v1
+kind: Function
+metadata:
+  name: function-resource-labeler
+  annotations:
+    crossplane.io/description: "Custom Go function that stamps labels on every composed resource"
+spec:
+  package: registry.example.com/function-resource-labeler:v0.1.0

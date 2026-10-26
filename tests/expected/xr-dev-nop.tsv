@@ -1,0 +1,7 @@
+[select(.kind == "NopResource")] | length	3
+[select(.metadata.labels."infra.example.io/composition" == "web-app-nop")] | length	3
+select(.kind == "NopResource" and .metadata.name == "shop-dev-nop-vm") | .spec.forProvider.fields.machineType	e2-small
+select(.kind == "NopResource" and .metadata.name == "shop-dev-nop-vm") | .spec.forProvider.fields.diskSizeGb	20
+select(.kind == "NopResource" and .metadata.name == "shop-dev-nop-vpc") | .spec.forProvider.fields.region	us-central1
+select(.kind == "WebApplication") | .status.vpcNetworkName	shop-dev-nop-vpc
+select(.kind == "WebApplication") | .status.storageBucketName	shop-dev-nop-bucket
